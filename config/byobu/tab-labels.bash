@@ -1,6 +1,6 @@
 # Optional remote Bash integration; source from ~/.bashrc after the existing
 # prompt setup. This preserves PS1 and the exit status seen by other hooks.
-source "$HOME/.config/byobu/tab-labels.sh"
+source "${TERMINAL_SETUP_CONFIG:-$HOME/.config/byobu}/tab-labels.sh"
 _jan_tab_prompt_command() {
     local command_status=$?
     _jan_tab_emit

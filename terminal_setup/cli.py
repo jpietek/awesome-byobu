@@ -16,7 +16,7 @@ def main(argv=None):
     service.add_argument("--count", type=int)
     service.add_argument("--sensor", type=Path)
     sub.add_parser("status")
-    sub.add_parser("watch-events", help="Fedora KDE D-Bus wake/unlock bridge")
+    sub.add_parser("watch-events", help="Fedora KDE/GNOME D-Bus wake/unlock bridge")
     event = sub.add_parser("event")
     event.add_argument("kind", choices=("wake", "unlock"))
     args = parser.parse_args(argv)

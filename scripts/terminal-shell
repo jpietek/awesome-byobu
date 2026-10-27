@@ -1,0 +1,7 @@
+#!/bin/sh
+# Give both operating systems the full Zsh preexec/prompt title rules.
+terminal_setup_home=@INSTALL_HOME@
+export TERMINAL_SETUP_CONFIG="$terminal_setup_home/.config/byobu"
+export TERMINAL_SETUP_USER_ZDOTDIR="${ZDOTDIR:-$terminal_setup_home}"
+export ZDOTDIR="$terminal_setup_home/.local/share/terminal-setup/zsh"
+exec @ZSH_PATH@ -d "$@"

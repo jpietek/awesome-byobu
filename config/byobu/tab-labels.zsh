@@ -1,4 +1,4 @@
-source "$HOME/.config/byobu/tab-labels.sh"
+source "${TERMINAL_SETUP_CONFIG:-$HOME/.config/byobu}/tab-labels.sh"
 autoload -Uz add-zsh-hook
 
 _jan_screen_title_precmd() {

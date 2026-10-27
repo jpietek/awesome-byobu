@@ -1,0 +1,7 @@
+# Read personal settings first; install the shared title hooks last.
+terminal_setup_user_zdotdir=${TERMINAL_SETUP_USER_ZDOTDIR:-$HOME}
+ZDOTDIR=$terminal_setup_user_zdotdir
+if [[ -r "$terminal_setup_user_zdotdir/.zshrc" ]]; then
+    source "$terminal_setup_user_zdotdir/.zshrc"
+fi
+source "${TERMINAL_SETUP_CONFIG}/tab-labels.zsh"

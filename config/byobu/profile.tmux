@@ -1,4 +1,4 @@
-source $BYOBU_PREFIX/share/byobu/profiles/tmux
+source @BASE_PROFILE@
 
 # A shared collector publishes the status cache; tmux only streams it.
 set -g status 2
@@ -34,6 +34,8 @@ set -g status-format[1] '#[align=left range=left #{E:status-left-style}]#[push-d
 set -g automatic-rename on
 set -g automatic-rename-format @AUTO_RENAME@
 set -g allow-rename on
+set -g default-shell @ZSH_PATH@
+set -g default-command @SHELL_COMMAND@
 set -g default-terminal 'tmux-256color'
 set -as terminal-features ',xterm-256color:RGB'
 

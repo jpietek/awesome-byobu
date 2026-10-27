@@ -1,4 +1,4 @@
-"""Fedora KDE wake/unlock timestamps, subscribed once through D-Bus."""
+"""Fedora KDE/GNOME wake/unlock timestamps, subscribed once through D-Bus."""
 import time
 from .collector import atomic_write
 
@@ -22,5 +22,7 @@ def watch(state_dir):
     system.signal_subscribe("org.freedesktop.login1", "org.freedesktop.login1.Manager", "PrepareForSleep",
                             "/org/freedesktop/login1", None, Gio.DBusSignalFlags.NONE, wake, None)
     session.signal_subscribe("org.freedesktop.ScreenSaver", "org.freedesktop.ScreenSaver", "ActiveChanged",
+                             None, None, Gio.DBusSignalFlags.NONE, unlock, None)
+    session.signal_subscribe("org.gnome.ScreenSaver", "org.gnome.ScreenSaver", "ActiveChanged",
                              None, None, Gio.DBusSignalFlags.NONE, unlock, None)
     GLib.MainLoop().run()

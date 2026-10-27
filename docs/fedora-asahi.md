@@ -9,7 +9,7 @@ install Linux, alter boot partitions or add support for a Mac model. Check the
 From the cloned repository, as your normal desktop user:
 
 ```sh
-sh platforms/linux/setup-fedora.sh
+sh setup.sh
 ```
 
 The helper checks Fedora 43/44, uses `sudo dnf` for system packages, then runs
@@ -21,12 +21,12 @@ Yakuake and the D-Bus Python binding. To inspect dependencies only:
 sh platforms/linux/setup-fedora.sh --print-deps
 ```
 
-Select **Terminal setup** in Konsole's profile menu or Yakuake's profile
-settings. It starts Byobu and uses the bundled Hack Nerd Font Mono at size 13,
-the captured colors and 75% opacity. Existing desktop hotkeys/default terminal
-profiles stay under your control. On an existing shell, open a new shell to
-load the installed title hooks. Zsh carries the original running-agent and SSH
-title hooks; Bash has directory/branch prompt labels.
+Setup opens the **Terminal setup** Konsole profile and adds an application-menu
+launcher. The profile is also available in Yakuake. It uses the bundled Hack
+Nerd Font Mono at size 13, captured colors and 75% opacity. Its managed Zsh
+shell loads all agent/SSH/directory/branch title rules automatically, including
+on Fedora accounts whose login shell is Bash. Global desktop hotkeys remain
+under your control.
 
 Useful checks:
 
@@ -37,7 +37,7 @@ systemctl --user list-timers terminal-session-save.timer
 fc-match 'Hack Nerd Font Mono'
 ```
 
-The event service listens to logind resume and KDE screen-unlock events; it
+The event service listens to logind resume and KDE/GNOME screen-unlock events; it
 does not poll the process table or power logs. An initial awake/unlock badge
 appears after the corresponding event. Other desktops can write events using
 `terminal-stats event wake` / `terminal-stats event unlock`; the supplied unlock

@@ -8,6 +8,25 @@ contents, conversation IDs, shell history, credentials, or machine binaries.
 The existing Mac installation is separate. Creating or testing this repository
 does not replace its running services or reload its tmux server.
 
+## One-command restore
+
+Unzip `terminal-setup.zip`. On macOS, double-click **Setup.command**. On either
+supported system, run this from the extracted folder:
+
+```sh
+sh setup.sh
+```
+
+This installs dependencies, builds the native helpers, backs up replaced
+configuration, installs fonts and the full tab-name rules, enables services,
+verifies live CPU/RAM readings and opens the configured terminal. It also adds
+a **Terminal setup** launcher for subsequent use. See the
+[one-click guide](docs/one-click.md) for clean/existing installations and limits.
+
+Automatic bootstrap targets **macOS 15+** and **Fedora 43/44**. Apple Silicon
+is the primary Mac target; Intel support is best-effort and untested locally.
+OS administrator, developer-tool and automation dialogs may require approval.
+
 The Linux target is **Fedora Asahi Remix 43 or 44 on aarch64**, with KDE Plasma
 and Konsole/Yakuake. The original plots, palette, font and terminal profile are
 preserved; see [appearance fidelity](docs/appearance.md) and the
@@ -23,7 +42,7 @@ preserved; see [appearance fidelity](docs/appearance.md) and the
 | P/E-core groups | Discovered from IORegistry | Apple M1/M2 device-tree types, or complete two-tier CPU capacity data; otherwise unknown |
 | Collector startup | LaunchAgent | systemd user service |
 | Session save/restore | LaunchAgents | systemd user service/timer |
-| Wake/unlock age | Optional Hammerspoon event bridge; existing unlock file supported | logind/KDE D-Bus bridge, requires python3-gobject-base |
+| Wake/unlock age | Native AppKit event agent; no Hammerspoon dependency | logind and KDE/GNOME D-Bus bridge, requires python3-gobject-base |
 | Font and terminal colors | Named iTerm profile | Named Konsole/Yakuake profile with the same palette and bundled Hack Nerd Font Mono |
 | Job CPU budget | Existing Codex/Claude-aware limiter and recovery script | Interface prepared; quota backend is **not implemented** |
 
@@ -65,9 +84,9 @@ the working stats backend.
 
 Requires Python 3.9+, a C compiler, Byobu, tmux, Bash and Perl. macOS's Apple
 Command Line Tools provide the compiler/Python; Homebrew can provide Byobu/tmux.
-On Fedora use `sh platforms/linux/setup-fedora.sh` to install dependencies and
-activate services. The collector itself needs no Python packages; the Fedora
-KDE wake/unlock bridge uses the distribution's `python3-gobject-base` package.
+Use `sh setup.sh` to install dependencies and activate services. The collector
+itself needs no Python packages; the Fedora wake/unlock bridge uses the
+distribution's `python3-gobject-base` package.
 
 ```sh
 sh build.sh
@@ -90,35 +109,38 @@ python3 -m terminal_setup.cli --cache-dir /tmp/terminal-stats/cache status
 ## Install when ready
 
 ```sh
-./install.sh             # install files and service definitions; do not activate
-./install.sh --activate  # install and enable the collector/session services
+sh setup.sh              # full dependency/setup/verification/open flow
+./install.sh             # advanced: install files only; dependencies must exist
+./install.sh --activate  # advanced: install and enable services, without opening UI
 ~/.local/bin/start-byobu
 ```
 
 Installation backs up replaced files under
-`~/.local/state/terminal-setup/install-backups/`. It does not terminate/restart
-your tmux server. An existing server keeps its loaded configuration until you
-explicitly reload it or start a new one. On macOS, activation disables the older
-`com.jan.byobu-session-*` jobs to avoid duplicate autosave timers.
+`~/.local/state/terminal-setup/install-backups/`. A private tmux socket and
+session-state directory keep unrelated sessions separate. Rerunning setup
+refreshes its own services and server configuration without killing panes.
+It does not disable unrelated/legacy service labels.
 
-The installer adds shell tab-title hooks to `.zshrc` and `.bashrc` if missing,
-backing them up and preserving existing prompt configuration.
+The configured terminal uses Zsh on both OSes. A managed startup file reads
+your personal Zsh configuration, then installs the full tab-title hooks. It
+does not rewrite `.zshrc`, `.bashrc`, or your account's login shell. Byobu's
+stock bindings are retained without running its shell-migration janitor.
 Machine/project-specific bindings belong in `~/.config/byobu/local.tmux`, which
 is not tracked. Clipboard URL opening uses `open` on macOS and `xdg-open` with
 `wl-paste` or `xclip` on Linux; an explicit URL needs no clipboard helper.
 
-Session snapshots stay in `~/.local/state/byobu/`. The bundled tmux-resurrect
-and tmux-continuum versions are pinned in `vendor/versions.json`, including the
-local empty-pane-title fix. Agent resumption is best-effort and uses the local
-agent CLIs/session state. Existing sessions are never replaced at service startup.
+Session snapshots live in `~/.local/state/terminal-setup/byobu/`. The bundled
+plugins are pinned in `vendor/versions.json`, including the empty-pane-title
+fix. Only tmux-resurrect is loaded: the launcher/service owns restoration and
+the timer owns saving, avoiding continuum redraw polling or competing restores.
+Agent resumption is best-effort and uses the local agent CLIs/session state.
+Old private snapshots are not automatically replayed into the new server.
 
-For wake/unlock timestamps, the optional macOS module is
-`platforms/macos/terminal_stats_events.lua`. Load it into Hammerspoon and retain
-the object returned by `.start()`. Other desktop/session integrations can call
-`terminal-stats event wake` or `terminal-stats event unlock`. No additional
-desktop hooks are needed on KDE beyond the installed `terminal-events.service`.
-It records logind resume and KDE screen-unlock signals. "Awake" means time since the recorded
-wake event, not the previous helper's deliberate-sleep-only heuristic.
+Wake/unlock timestamps are collected by a native Mac agent or Fedora's D-Bus
+bridge. Other integrations can call `terminal-stats event wake` / `event unlock`.
+The optional Hammerspoon module remains archived, but is no longer needed.
+"Awake" means time since a recorded resume, not the old helper's deliberate-
+sleep-only heuristic. Badges appear after the first corresponding event.
 
 ## CPU recovery and archives
 

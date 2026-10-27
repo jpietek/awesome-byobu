@@ -15,13 +15,14 @@ def service_files(system, home):
                 "session-save": [str(binary / "byobu-session-save")],
                 "session-restore": [str(binary / "byobu-session-restore")]}
     if system == "Darwin":
+        commands['events'] = [str(home / '.local/libexec/tmux-metrics-events'), str(home / '.local/state/terminal-setup')]
         result = {}
         for name, command in commands.items():
             label = "org.terminal-setup." + name
             data = {"Label": label, "ProgramArguments": command, "RunAtLoad": True,
                     "ProcessType": "Standard", "StandardOutPath": str(log / (name + ".log")),
                     "StandardErrorPath": str(log / (name + ".log"))}
-            if name == "metrics":
+            if name in ("metrics", "events"):
                 data.update(KeepAlive=True, ThrottleInterval=10, ExitTimeOut=10)
             elif name == "session-save":
                 data["StartInterval"] = 60
@@ -44,7 +45,7 @@ def service_files(system, home):
         "OnStartupSec=90\nOnUnitActiveSec=60\nUnit=terminal-session-save.service\n\n"
         "[Install]\nWantedBy=timers.target\n").encode()
     result[".config/systemd/user/terminal-events.service"] = (
-        "[Unit]\nDescription=Terminal wake/unlock events (Fedora KDE)\nPartOf=graphical-session.target\n\n"
+        "[Unit]\nDescription=Terminal wake/unlock events (Fedora KDE/GNOME)\nPartOf=graphical-session.target\n\n"
         "[Service]\nType=simple\nExecStart=" + systemd_arg(binary / "terminal-stats") + " watch-events\n"
         "Restart=on-failure\nRestartSec=10\n\n[Install]\nWantedBy=graphical-session.target\n").encode()
     return result

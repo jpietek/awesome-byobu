@@ -27,8 +27,9 @@ exact font files (Nerd Fonts 3.5.1, Hack 3.003) are included with their notices
 and SHA-256 hashes under `assets/fonts/`.
 
 Installation adds a named **Terminal setup** profile to iTerm on macOS or
-Konsole/Yakuake on Fedora. Select it in the terminal. It does not replace your
-default profile or globally change desktop shortcuts. The same Apple badge is
+Konsole/Yakuake on Fedora. `setup.sh` opens it and installs a launcher that
+selects it automatically. It does not replace your default profile or globally
+change desktop shortcuts. The same Apple badge is
 retained for the Apple hardware on both OSes. The renderer is shared, so the
 same supplied measurements yield the same tmux text, glyphs and RGB colors.
 

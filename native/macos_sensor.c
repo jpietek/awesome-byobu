@@ -50,15 +50,22 @@ static void battery(void) {
     if (!svc || IORegistryEntryCreateCFProperties(svc, &p, NULL, 0) != KERN_SUCCESS || !p) {
         printf("null"); if (svc) IOObjectRelease(svc); return;
     }
-    long long amp=0, volt=0, cur=0, full=0, pct=0;
+    long long amp=0, volt=0, cur=0, full=0, pct=0, max_capacity=0;
     int have_amp=number(p,CFSTR("InstantAmperage"),&amp), have_volt=number(p,CFSTR("Voltage"),&volt);
     int plugged=CFDictionaryGetValue(p,CFSTR("ExternalConnected"))==kCFBooleanTrue;
     int charging=CFDictionaryGetValue(p,CFSTR("IsCharging"))==kCFBooleanTrue;
     printf("{\"plugged\":%s,\"status\":\"%s\",\"percent\":",plugged?"true":"false",charging?"Charging":plugged?"Not charging":"Discharging");
-    if(number(p,CFSTR("CurrentCapacity"),&pct))printf("%lld",pct);else printf("null");
+    int have_pct=number(p,CFSTR("CurrentCapacity"),&pct);
+    int have_max=number(p,CFSTR("MaxCapacity"),&max_capacity);
+    if(have_pct&&have_max&&max_capacity>0)printf("%.0f",100.0*pct/max_capacity);
+    else if(have_pct&&pct>=0&&pct<=100)printf("%lld",pct);else printf("null");
     printf(",\"power_w\":");if(have_amp&&have_volt)printf("%.6f",llabs(amp)*(double)volt/1e6);else printf("null");
-    printf(",\"energy_now_wh\":");if(have_volt&&number(p,CFSTR("AppleRawCurrentCapacity"),&cur))printf("%.6f",cur*(double)volt/1e6);else printf("null");
-    printf(",\"energy_full_wh\":");if(have_volt&&number(p,CFSTR("AppleRawMaxCapacity"),&full))printf("%.6f",full*(double)volt/1e6);else printf("null");
+    int have_cur=number(p,CFSTR("AppleRawCurrentCapacity"),&cur);
+    int have_full=number(p,CFSTR("AppleRawMaxCapacity"),&full);
+    if(!have_cur&&have_pct&&have_max&&max_capacity>100){cur=pct;have_cur=1;}
+    if(!have_full&&have_max&&max_capacity>100){full=max_capacity;have_full=1;}
+    printf(",\"energy_now_wh\":");if(have_volt&&have_cur)printf("%.6f",cur*(double)volt/1e6);else printf("null");
+    printf(",\"energy_full_wh\":");if(have_volt&&have_full)printf("%.6f",full*(double)volt/1e6);else printf("null");
     printf("}"); CFRelease(p); IOObjectRelease(svc);
 }
 static int sample(host_t host) {

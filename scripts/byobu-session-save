@@ -1,13 +1,11 @@
 #!/bin/bash
 set -euo pipefail
-export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-export SHELL="${SHELL:-/bin/bash}"
-export BYOBU_CONFIG_DIR="$HOME/.config/byobu"
-export LANG="${LANG:-C.UTF-8}"
+. @SESSION_ENV@
 umask 077
-state="$HOME/.local/state/byobu"
+state="$TERMINAL_SETUP_SESSION_STATE"
 mkdir -p "$state"
 tmux has-session 2>/dev/null || exit 0
+export TMUX="$(tmux display-message -p '#{socket_path},#{pid},0')"
 # Do not replace the previous boot's snapshot while restoration is starting.
 started=$(tmux display-message -p '#{start_time}')
 if [ "${1:-}" != --now ] && [ "$(( $(date +%s) - started ))" -lt 90 ]; then
@@ -26,4 +24,4 @@ exec /usr/bin/perl -MFcntl=:flock -e '
     flock($lock, LOCK_EX | LOCK_NB) or exit 0;
     system("/bin/bash", $ARGV[1], "quiet");
     exit($? == -1 ? 1 : $? >> 8);
-' "$state/save.lock" "$HOME/.config/byobu/plugins/tmux-resurrect/scripts/save.sh"
+' "$state/save.lock" "$terminal_setup_home/.config/byobu/plugins/tmux-resurrect/scripts/save.sh"

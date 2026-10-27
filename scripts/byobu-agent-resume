@@ -1,6 +1,6 @@
 #!@PYTHON@
 import json, os, pathlib, shlex, subprocess, sys
-H=pathlib.Path.home(); F=H/'.local/state/byobu/agents.json'
+H=pathlib.Path(@INSTALL_HOME_PYTHON@); F=H/'.local/state/terminal-setup/byobu/agents.json'
 def run(*args): return subprocess.check_output(args,text=True).strip()
 if sys.argv[1]=='save':
     procs={}

@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+case "$(uname -s)" in
+    Darwin)
+        /usr/bin/open -b com.googlecode.iterm2
+        # Dynamic profiles load asynchronously on first iTerm launch.
+        attempt=0
+        until /usr/bin/osascript -e 'tell application id "com.googlecode.iterm2"' -e 'activate' -e 'create window with profile "Terminal setup"' -e 'end tell'; do
+            attempt=$((attempt + 1))
+            [ "$attempt" -lt 5 ] || exit 1
+            sleep 1
+        done ;;
+    Linux) exec konsole --profile TerminalSetup ;;
+    *) exit 1 ;;
+esac
