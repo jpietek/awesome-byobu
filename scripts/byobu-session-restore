@@ -1,0 +1,61 @@
+#!/bin/bash
+set -euo pipefail
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export SHELL="${SHELL:-/bin/bash}"
+export BYOBU_CONFIG_DIR="$HOME/.config/byobu"
+export TERM=xterm-256color
+export LANG="${LANG:-C.UTF-8}"
+umask 077
+state="$HOME/.local/state/byobu"
+snapshot="$state/resurrect/last"
+mkdir -p "$state/logs"
+if [ "${BYOBU_RESTORE_LOCKED:-}" != 1 ]; then
+    exec /usr/bin/perl -MFcntl=:flock -e '
+        open(my $lock, ">", $ARGV[0]) or die $!;
+        flock($lock, LOCK_EX) or die $!;
+        system("/usr/bin/env", "BYOBU_RESTORE_LOCKED=1", "/bin/bash", $ARGV[1]);
+        exit($? == -1 ? 1 : $? >> 8);
+    ' "$state/restore.lock" "$0"
+fi
+# Existing sessions belong to the user: startup must not duplicate them.
+if tmux has-session 2>/dev/null; then
+    echo 'Byobu is already running; leaving existing sessions in place.'
+    exit 0
+fi
+if [ -e "$snapshot" ] && ! awk -F '\t' '$1 == "pane" {found=1} END {exit !found}' "$snapshot"; then
+    echo 'Saved session has no valid panes; refusing to overwrite it.' >&2
+    exit 1
+fi
+byobu-tmux new-session -d -s 0 -c "$HOME"
+export TMUX="$(tmux display-message -p '#{socket_path},#{pid},0')"
+tmux set-option -g @jan-restoring 1
+if [ -s "$snapshot" ]; then
+    # Continuum restores on server startup. Allow it time to finish first.
+    sleep 10
+    expected_panes() {
+        awk -F '\t' '$1 == "pane" {print $2 ":" $3 "." $6}' "$snapshot" | sort
+    }
+    actual_panes() {
+        tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index}' | sort
+    }
+    if ! diff -q <(expected_panes) <(actual_panes) >/dev/null; then
+        /bin/bash "$HOME/.config/byobu/plugins/tmux-resurrect/scripts/restore.sh"
+    fi
+    if ! diff -q <(expected_panes) <(actual_panes) >/dev/null; then
+        echo 'Restore incomplete; autosave paused to protect the saved session.' >&2
+        exit 1
+    fi
+    # Resurrect's switch-client calls have no client during background login.
+    # Select the saved active panes and tabs explicitly on each session.
+    while IFS= read -r target; do
+        tmux select-pane -t "$target"
+    done < <(awk -F '\t' '$1 == "pane" && $9 == 1 {print $2 ":" $3 "." $6}' "$snapshot")
+    while IFS= read -r target; do
+        tmux select-window -t "$target"
+    done < <(awk -F '\t' '$1 == "window" && $5 == 1 {print $2 ":" $3}' "$snapshot")
+fi
+"$HOME/.local/bin/byobu-agent-resume" restore
+tmux set-option -gu @jan-restoring
+echo "$(date): Byobu sessions restored."
+tmux list-sessions
+# Leave iTerm hidden; its existing tilde hotkey opens the Byobu profile.

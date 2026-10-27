@@ -1,0 +1,29 @@
+#!/bin/bash
+set -euo pipefail
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export SHELL="${SHELL:-/bin/bash}"
+export BYOBU_CONFIG_DIR="$HOME/.config/byobu"
+export LANG="${LANG:-C.UTF-8}"
+umask 077
+state="$HOME/.local/state/byobu"
+mkdir -p "$state"
+tmux has-session 2>/dev/null || exit 0
+# Do not replace the previous boot's snapshot while restoration is starting.
+started=$(tmux display-message -p '#{start_time}')
+if [ "${1:-}" != --now ] && [ "$(( $(date +%s) - started ))" -lt 90 ]; then
+    exit 0
+fi
+[ "$(tmux show-option -gqv @jan-restoring)" != 1 ] || exit 0
+# Detached saves have no client session; retain the last attached workspace.
+active_session=$(tmux list-clients -F '#{client_activity} #{client_session}' | sort -n | tail -1 | cut -d ' ' -f 2-)
+if [ -n "$active_session" ]; then
+    printf '%s\n' "$active_session" > "$state/active-session.tmp.$$"
+    mv "$state/active-session.tmp.$$" "$state/active-session"
+fi
+# Kernel lock is released automatically if this job is interrupted by reboot.
+exec /usr/bin/perl -MFcntl=:flock -e '
+    open(my $lock, ">", $ARGV[0]) or die $!;
+    flock($lock, LOCK_EX | LOCK_NB) or exit 0;
+    system("/bin/bash", $ARGV[1], "quiet");
+    exit($? == -1 ? 1 : $? >> 8);
+' "$state/save.lock" "$HOME/.config/byobu/plugins/tmux-resurrect/scripts/save.sh"

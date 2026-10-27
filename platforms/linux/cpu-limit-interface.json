@@ -1,0 +1,18 @@
+{
+  "status": "interface-only-not-implemented",
+  "proposed_backend": "systemd user slice / cgroup v2 CPU quota",
+  "methods": {
+    "configure": {"aggregate_cpu_percent": "100 means one CPU's time; apply to a shared slice"},
+    "run": {"argv": "launch a job into that shared slice"},
+    "status": {"configured_percent": "number", "covered_units": "list", "controller_active": "boolean"},
+    "stop": {"behavior": "remove the quota without terminating workloads"}
+  },
+  "required_guarantees": [
+    "All launched descendant processes inherit the same shared quota",
+    "Codex/Claude app-server jobs must be explicitly launched/adopted into the slice",
+    "Do not imply that already-running jobs were adopted when only a slice was configured",
+    "Agent/terminal input handling must stay outside the workload slice",
+    "Discover CPU topology; never assume six efficiency cores on Linux"
+  ],
+  "reference": "https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html"
+}

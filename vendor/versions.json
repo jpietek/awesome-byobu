@@ -1,0 +1,11 @@
+{
+  "tmux-resurrect": {
+    "url": "https://github.com/tmux-plugins/tmux-resurrect",
+    "commit": "cff343cf9e81983d3da0c8562b01616f12e8d548",
+    "local_change": "Empty pane titles use untitled to preserve tab-separated restore fields."
+  },
+  "tmux-continuum": {
+    "url": "https://github.com/tmux-plugins/tmux-continuum",
+    "commit": "0698e8f4b17d6454c71bf5212895ec055c578da0"
+  }
+}

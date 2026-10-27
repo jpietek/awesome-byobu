@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+export BYOBU_CONFIG_DIR="$HOME/.config/byobu"
+export LANG="${LANG:-C.UTF-8}"
+command -v byobu-tmux >/dev/null 2>&1 || { echo 'Install Byobu and tmux first.' >&2; exit 1; }
+exec byobu-tmux "$@"

@@ -1,0 +1,233 @@
+#!/Library/Developer/CommandLineTools/usr/bin/python3
+"""Control the shared CPU budget for terminal jobs on this Mac."""
+import json
+import os
+from pathlib import Path
+import plistlib
+import re
+import subprocess
+import sys
+import time
+
+ROOT = Path.home()
+LABEL = "com.jan.terminal-cpu-cap"
+DOMAIN = f"gui/{os.getuid()}"
+SERVICE = f"{DOMAIN}/{LABEL}"
+STATE = ROOT / ".local/state/byobu-cpu-cap"
+PLIST = ROOT / "Library/LaunchAgents" / f"{LABEL}.plist"
+BINARY = ROOT / ".local/libexec/cpulimit-terminal"
+MONITOR_LABEL = LABEL + ".health"
+MONITOR_SERVICE = f"{DOMAIN}/{MONITOR_LABEL}"
+MONITOR_PLIST = ROOT / "Library/LaunchAgents" / f"{MONITOR_LABEL}.plist"
+
+
+def launchctl(*args, check=True):
+    return subprocess.run(["/bin/launchctl", *args], check=check,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+
+def loaded(service=SERVICE):
+    return launchctl("print", service, check=False).returncode == 0
+
+
+def verified_status():
+    report = launchctl("print", SERVICE, check=False)
+    if report.returncode:
+        raise ValueError("limiter service is not loaded")
+    match = re.search(r"^\s*pid = (\d+)\s*$", report.stdout, re.MULTILINE)
+    if not match:
+        raise ValueError("limiter service is not running")
+    data = json.loads((STATE / "status.json").read_text())
+    if int(match[1]) != data["pid"]:
+        raise ValueError("status belongs to an old controller")
+    if not 0 <= time.time() - data["updated"] <= 15:
+        raise ValueError("limiter heartbeat is stale")
+    if data["cap_percent"] != configured_limit():
+        raise ValueError("running budget differs from configured budget")
+    if data.get("scope") != "terminal-and-agent-jobs-v2":
+        raise ValueError("controller lacks Codex/Claude job coverage")
+    os.kill(data["pid"], 0)
+    os.kill(data["watchdog_pid"], 0)
+    return data
+
+
+def configured_limit():
+    if PLIST.exists():
+        args = plistlib.loads(PLIST.read_bytes())["ProgramArguments"]
+        return int(args[args.index("-l") + 1])
+    return 450
+
+
+def status():
+    if not loaded():
+        print(f"Stopped. Configured budget: {configured_limit()}% (100% = one core).")
+        return
+    try:
+        data = verified_status()
+        print(f"Active: {data['cap_percent']}% combined CPU budget "
+              f"({data['cap_percent'] / 100:g} cores' worth).")
+        print(f"Recent job CPU: {data['measured_percent']}%; "
+              f"tracked job processes: {data['jobs']}; controller PID: {data['pid']}.")
+        print("Covers jobs under Byobu/tmux, iTerm, Codex (including app-server), and Claude.")
+        print("Terminals, shells and agent UIs are exempt. This is not a system-wide/per-core ceiling.")
+        if loaded(MONITOR_SERVICE):
+            try:
+                health = json.loads((STATE / "health.json").read_text())
+                if (health.get("controller_pid") != data["pid"] or
+                        health.get("scope") != data["scope"] or
+                        time.time() - health["checked_at"] > 90):
+                    print("Automatic check every 60 seconds; check for this controller pending.")
+                else:
+                    checked = time.strftime("%H:%M:%S", time.localtime(health["checked_at"]))
+                    print(f"Automatic check every 60 seconds; last check {checked}: {health['result']}.")
+            except (OSError, ValueError, KeyError):
+                print("Automatic check every 60 seconds; first check pending.")
+    except (OSError, ValueError, KeyError):
+        print("Service loaded; fresh measurements not yet available. Check " + str(STATE / "service.log"))
+
+
+def configure_monitor():
+    config = {
+        "Label": MONITOR_LABEL,
+        "ProgramArguments": [str(ROOT / ".local/bin/byobu-cpu-cap"), "check"],
+        "RunAtLoad": True,
+        "StartInterval": 60,
+        "ProcessType": "Standard",
+        "StandardOutPath": str(STATE / "health.log"),
+        "StandardErrorPath": str(STATE / "health.log"),
+    }
+    encoded = plistlib.dumps(config)
+    changed = not MONITOR_PLIST.exists() or MONITOR_PLIST.read_bytes() != encoded
+    if changed:
+        if loaded(MONITOR_SERVICE):
+            launchctl("bootout", MONITOR_SERVICE)
+        MONITOR_PLIST.write_bytes(encoded)
+    launchctl("enable", MONITOR_SERVICE)
+    if not loaded(MONITOR_SERVICE):
+        launchctl("bootstrap", DOMAIN, str(MONITOR_PLIST))
+
+
+def start(limit, monitor=True, announce=True):
+    maximum = int(subprocess.check_output(["/usr/sbin/sysctl", "-n", "hw.logicalcpu"], text=True)) * 100
+    if not 1 <= limit <= maximum:
+        raise ValueError(f"CPU budget must be between 1 and {maximum}; 400 means four cores total.")
+    STATE.mkdir(parents=True, exist_ok=True)
+    STATE.chmod(0o700)
+    if loaded():
+        launchctl("bootout", SERVICE)
+    # Wait for the old controller/watchdog to release the singleton lock.
+    import fcntl
+    with (STATE / "controller.lock").open("a") as lock:
+        deadline = time.monotonic() + 8
+        while True:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("Old controller did not exit; refusing to start a second limiter.")
+                time.sleep(0.1)
+    config = {
+        "Label": LABEL,
+        "ProgramArguments": [str(BINARY), "--terminal-jobs", "-l", str(limit),
+                             "--status-file", str(STATE / "status.json"),
+                             "--lock-file", str(STATE / "controller.lock")],
+        "RunAtLoad": True,
+        "KeepAlive": True,
+        "ProcessType": "Standard",
+        "ThrottleInterval": 10,
+        "ExitTimeOut": 10,
+        "StandardOutPath": str(STATE / "service.log"),
+        "StandardErrorPath": str(STATE / "service.log"),
+    }
+    PLIST.write_bytes(plistlib.dumps(config))
+    launchctl("enable", SERVICE)
+    launchctl("bootstrap", DOMAIN, str(PLIST))
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        try:
+            verified_status()
+            break
+        except (OSError, ValueError, KeyError):
+            pass
+        time.sleep(0.1)
+    verified_status()
+    if monitor:
+        configure_monitor()
+    if announce:
+        status()
+
+
+def health_check():
+    reason = None
+    try:
+        data = verified_status()
+    except (OSError, ValueError, KeyError) as error:
+        reason = str(error)
+        start(configured_limit(), monitor=False, announce=False)
+        data = verified_status()
+    within_budget = data["measured_percent"] <= data["cap_percent"] * 1.15 + 5
+    health = {
+        "checked_at": time.time(),
+        "result": "repaired" if reason else ("running; job sample within budget" if within_budget else "over-budget sample"),
+        "scope": data["scope"],
+        "reason": reason,
+        "controller_pid": data["pid"],
+        "cap_percent": data["cap_percent"],
+        "measured_percent": data["measured_percent"],
+        "heartbeat_age_seconds": round(time.time() - data["updated"], 2),
+        "sample_within_budget": within_budget,
+    }
+    temporary = STATE / "health.json.tmp"
+    temporary.write_text(json.dumps(health) + "\n")
+    temporary.replace(STATE / "health.json")
+    if reason:
+        print(f"Repaired CPU cap ({reason}); {data['cap_percent']}% is now active.")
+    elif not within_budget:
+        print(f"CPU cap is active at {data['cap_percent']}%, but the latest job sample "
+              f"was {data['measured_percent']}%; recorded for inspection.")
+
+
+def main():
+    action = sys.argv[1] if len(sys.argv) > 1 else "status"
+    if action in ("start", "set"):
+        if len(sys.argv) > 3:
+            raise ValueError("Use byobu-cpu-cap start [450] or set PERCENT.")
+        start(int(sys.argv[2]) if len(sys.argv) > 2 else configured_limit())
+    elif action == "stop":
+        launchctl("disable", MONITOR_SERVICE)
+        if loaded(MONITOR_SERVICE):
+            launchctl("bootout", MONITOR_SERVICE)
+        launchctl("disable", SERVICE)
+        if loaded():
+            launchctl("bootout", SERVICE)
+        print("CPU cap and periodic checks disabled, including at login; paused jobs are resumed.")
+    elif action == "check":
+        health_check()
+    elif action == "status":
+        status()
+    elif action == "jobs":
+        subprocess.run([str(BINARY), "--terminal-jobs", "--list"], check=True)
+    else:
+        raise ValueError("Usage: byobu-cpu-cap [status | check | jobs | start [450] | set PERCENT | stop]")
+
+
+if __name__ == "__main__":
+    try:
+        import fcntl
+        STATE.mkdir(parents=True, exist_ok=True)
+        with (STATE / "management.lock").open("a") as management_lock:
+            action = sys.argv[1] if len(sys.argv) > 1 else "status"
+            if action in ("start", "set", "stop", "check"):
+                try:
+                    fcntl.flock(management_lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    if action == "check":
+                        sys.exit(0)
+                    raise RuntimeError("CPU cap settings are being updated; retry in a moment.")
+            main()
+    except (ValueError, RuntimeError, OSError, subprocess.CalledProcessError) as error:
+        print(str(error), file=sys.stderr)
+        if isinstance(error, subprocess.CalledProcessError):
+            print(error.stderr or "", file=sys.stderr)
+        sys.exit(1)

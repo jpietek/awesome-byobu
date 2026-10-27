@@ -1,0 +1,40 @@
+#!@PYTHON@
+import json, os, pathlib, shlex, subprocess, sys
+H=pathlib.Path.home(); F=H/'.local/state/byobu/agents.json'
+def run(*args): return subprocess.check_output(args,text=True).strip()
+if sys.argv[1]=='save':
+    procs={}
+    for line in run('/bin/ps','-axo','pid=,ppid=,comm=').splitlines():
+        p,pp,c=line.strip().split(None,2); procs[int(p)]=(int(pp),c)
+    saved=[]
+    for line in run('tmux','list-panes','-a','-F','#{session_name}:#{window_index}.#{pane_index}\t#{pane_pid}\t#{pane_current_path}').splitlines():
+        pane,pid,cwd=line.split('\t',2); root=int(pid)
+        children=[]
+        for p,(_,cmd) in procs.items():
+            q=p; seen=set()
+            while q in procs and q not in seen:
+                if q==root:
+                    children.append((p,cmd)); break
+                seen.add(q);q=procs[q][0]
+        agent=None
+        for p,cmd in children:
+            if pathlib.Path(cmd).name.startswith('claude') or '/claude/versions/' in cmd:
+                try:
+                    d=json.loads((H/f'.claude/sessions/{p}.json').read_text())
+                    agent=['claude','--resume',d['sessionId']]
+                except (OSError,KeyError,ValueError): agent=['claude','--continue']
+                break
+            if pathlib.Path(cmd).name=='codex': agent=['codex','resume','--last']
+        if agent:saved.append({'pane':pane,'cwd':cwd,'command':agent})
+    F.parent.mkdir(parents=True,exist_ok=True)
+    tmp=F.with_suffix('.tmp');tmp.write_text(json.dumps(saved,indent=2));tmp.chmod(0o600);tmp.replace(F)
+else:
+    for d in json.loads(F.read_text()) if F.exists() else []:
+        command='cd -- '+shlex.quote(d['cwd'])+' && '+shlex.join(d['command'])
+        if sys.argv[1]=='dry-run':print(d['pane'],command);continue
+        try:
+            current=run('tmux','display-message','-p','-t',d['pane'],'#{pane_current_command}')
+            if current not in ['zsh','bash','sh','fish']:continue
+            subprocess.run(['tmux','send-keys','-t',d['pane'],'-l',command],check=True)
+            subprocess.run(['tmux','send-keys','-t',d['pane'],'Enter'],check=True)
+        except subprocess.CalledProcessError:pass

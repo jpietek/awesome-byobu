@@ -1,0 +1,11 @@
+build/
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+.venv/
+local.tmux
+resurrect/
+agents.json
+*.tar.gz
+!platforms/macos/cpu-limit/cpulimit-v0.2.tar.gz
