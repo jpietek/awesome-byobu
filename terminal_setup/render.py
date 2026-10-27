@@ -5,7 +5,7 @@ GLYPHS = "▁▂▃▄▅▆▇█"
 
 
 def badge(color, text):
-    return "#[fg=#111827,bg=" + color + ",bold] " + text + " #[default]"
+    return "#[fg=#111827,bg=" + color + ",bold] " + text + " "
 
 
 def duration(seconds):
@@ -18,10 +18,41 @@ def duration(seconds):
 def rate(value):
     if value is None:
         return "--"
-    for unit in ("B/s", "KiB/s", "MiB/s", "GiB/s"):
-        if value < 1024 or unit == "GiB/s":
-            return ("%.0f" if value >= 100 else "%.1f") % value + unit
-        value /= 1024
+    # Original compact B/K/M/G labels; arrows follow the number.
+    units = ("B", "K", "M", "G")
+    index = 0
+    while index < 3 and value >= (1024 if index == 0 else 100):
+        value /= 1024; index += 1
+    if value >= 10 or index == 0:
+        return "%.0f%s" % (value, units[index])
+    tenths = int(value * 10 + 0.5)
+    return (str(tenths // 10) + ("." + str(tenths % 10) if tenths % 10 else "") + units[index])
+
+
+def memory_bar(mem):
+    total = mem["total"]
+    if total <= 0:
+        return ""
+    used = max(0, mem["used"])
+    sizes = mem.get("display_segments", [mem["wired"], max(0, used - mem["wired"] - mem["compressed"]),
+                                         mem["compressed"], mem["cached"]])
+    ends = []; acc = 0
+    for size in sizes:
+        acc += max(0, size)
+        ends.append(min(16, int(acc / total * 16 + 0.5)))
+    colors = ["#f87171", "#4ade80", "#c084fc", "#64748b", "#334155"]
+    pressure = mem.get("pressure") or 0
+    bg = "#dc2626" if pressure >= 4 else "#facc15" if pressure >= 2 else "#1e293b"
+    fg = "#111827" if pressure >= 2 else "#e2e8f0"
+    bar = "#[fg=" + fg + ",bg=" + bg + ",bold] "
+    for cell in range(8):
+        left, right = [next((i for i, end in enumerate(ends) if half < end), 4)
+                       for half in (cell * 2, cell * 2 + 1)]
+        if left == right:
+            bar += "#[fg=" + colors[left] + ",bg=" + bg + "]" + ("█" if left < 4 else "░")
+        else:
+            bar += "#[fg=" + colors[left] + ",bg=" + (colors[right] if right < 4 else bg) + "]▌#[bg=" + bg + "]"
+    return bar + "#[fg=" + fg + "] %.0f%% #[default]" % (used / total * 100)
 
 
 def render(snapshot):
@@ -38,29 +69,12 @@ def render(snapshot):
             line += "#[fg=" + COLORS[level] + "]" + (GLYPHS[level] if pct is not None else "·")
         sparks.append(line)
     cpu = snapshot["cpu"]["percent"]
-    parts = ["#[bg=default,bold] " + " ".join(sparks) + " #[default]",
-             badge("#38bdf8", "--" if cpu is None else "%.0f%%" % cpu),
-             badge("#f472b6", "%.2f" % snapshot["load1"])]
-    mem = snapshot["memory"]; total = mem["total"]
-    if total > 0:
-        used = min(total, max(0, mem["used"]))
-        wired = min(used, max(0, mem["wired"]))
-        comp = min(used - wired, max(0, mem["compressed"]))
-        sizes = [wired, used - wired - comp, comp, min(total - used, max(0, mem["cached"]))]
-        colors = ["#f87171", "#4ade80", "#c084fc", "#64748b"]
-        ends = []; acc = 0
-        for size in sizes:
-            acc += size; ends.append(min(8, int(acc / total * 8 + 0.5)))
-        pressure = mem.get("pressure") or 0
-        background = "#dc2626" if pressure >= 4 else "#facc15" if pressure >= 2 else "#1e293b"
-        foreground = "#111827" if pressure >= 2 else "#e2e8f0"
-        bar = "#[bg=" + background + "] "
-        for cell in range(8):
-            index = next((i for i, end in enumerate(ends) if cell < end), None)
-            bar += "#[fg=" + (colors[index] if index is not None else "#334155") + "]" + ("█" if index is not None else "░")
-        parts.append(bar + "#[fg=" + foreground + "] %.0f%% #[default]" % (used / total * 100))
+    line = ("#[bg=default,bold] " + " ".join(sparks) + " #[default]" +
+            badge("#38bdf8", "--" if cpu is None else "%.1f%%" % cpu) +
+            badge("#f472b6", "%.2f" % snapshot["load1"]) + "#[default] " + memory_bar(snapshot["memory"]) + " ")
     net = snapshot["network"]
-    parts += [badge("#4ade80", "↓" + rate(net["rx_bytes_per_second"])), badge("#22d3ee", "↑" + rate(net["tx_bytes_per_second"]))]
+    line += (badge("#4ade80", rate(net["rx_bytes_per_second"]) + "↓") +
+             badge("#22d3ee", rate(net["tx_bytes_per_second"]) + "↑") + "#[default] ")
     battery = snapshot.get("battery")
     if battery and battery.get("percent") is not None:
         pct = min(100, max(0, battery["percent"]))
@@ -69,9 +83,10 @@ def render(snapshot):
         if battery.get("plugged"):
             text += " ϟ"
         if battery.get("eta_seconds") is not None:
-            text += " " + ("+" if battery["status"] == "Charging" else "") + duration(battery["eta_seconds"])
-        parts.append(badge("#fde047", text))
-    for key, color, label in (("awake_seconds", "#a78bfa", "awake "), ("unlocked_seconds", "#fb923c", "unlock ")):
+            minutes = int(battery["eta_seconds"] / 60 + 0.5)
+            text += " " + ("+" if battery["status"] == "Charging" else "") + "%dh%02dm" % (minutes // 60, minutes % 60)
+        line += badge("#fde047", text) + "#[default] "
+    for key, color, label in (("awake_seconds", "#a78bfa", " "), ("unlocked_seconds", "#fb923c", "󰌾 ")):
         if snapshot.get(key) is not None:
-            parts.append(badge(color, label + duration(snapshot[key])))
-    return " ".join(parts)
+            line += badge(color, label + duration(snapshot[key]))
+    return line + "#[default] "

@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 from .services import service_files
+from .appearance import appearance_files
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,7 +38,8 @@ def config_text(name, home, system):
               "@AGENT_SAVE_COMMAND@": shlex.join([str(home / '.local/bin/byobu-agent-resume'), 'save'])}
     for key, value in values.items():
         text = text.replace(key, tmux_quote(value))
-    text = text.replace("@LOGO@", "" if system == "Darwin" else "Linux")
+    # Preserve the original Apple-hardware badge on macOS and Fedora Asahi.
+    text = text.replace("@LOGO@", "")
     return text
 
 
@@ -52,6 +54,7 @@ def install(home, system, activate=False, stage=False):
     if activate and home != Path.home().resolve():
         raise RuntimeError("Only the current user's home can activate services")
     files = {}
+    files.update(appearance_files(ROOT, home, system))
     for path in (ROOT / "terminal_setup").rglob("*.py"):
         files[home / ".local/share/terminal-setup" / path.relative_to(ROOT)] = (path.read_bytes(), 0o644)
     for path in (ROOT / "vendor").rglob("*"):
@@ -76,6 +79,13 @@ def install(home, system, activate=False, stage=False):
         data = config_text(path.name, home, system)
         files[home / ".config/byobu" / path.name] = (data.encode(), 0o644)
     files[home / ".config/byobu/backend"] = (b"BYOBU_BACKEND=tmux\n", 0o644)
+    for filename, hook in ((".bashrc", "tab-labels.bash"), (".zshrc", "tab-labels.zsh")):
+        path = home / filename
+        existing = path.read_text() if path.exists() else ""
+        if hook not in existing:
+            snippet = '\n# Terminal setup: preserve directory/branch and agent tab labels.\n'
+            snippet += '[ -r "$HOME/.config/byobu/' + hook + '" ] && . "$HOME/.config/byobu/' + hook + '"\n'
+            files[path] = ((existing + snippet).encode(), path.stat().st_mode & 0o777 if path.exists() else 0o644)
     for relative, data in service_files(system, home).items():
         files[home / relative] = (data, 0o644)
     # Backups precede writes; private pane history and agent-session state are
@@ -123,7 +133,9 @@ def activate_services(system, home):
             subprocess.run(["launchctl", "bootstrap", domain, str(home / "Library/LaunchAgents" / (label + ".plist"))], check=True)
     else:
         subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
-        subprocess.run(["systemctl", "--user", "enable", "--now", "terminal-metrics.service", "terminal-session-restore.service", "terminal-session-save.timer"], check=True)
+        subprocess.run(["systemctl", "--user", "enable", "--now", "terminal-metrics.service", "terminal-events.service", "terminal-session-restore.service", "terminal-session-save.timer"], check=True)
+        if shutil.which("fc-cache"):
+            subprocess.run(["fc-cache", str(home / '.local/share/fonts/terminal-setup')], check=True)
     print("Metrics and session services enabled. New Byobu servers load the shared-cache status bar.")
 
 

@@ -10,6 +10,8 @@ class Metrics:
         self.previous_time = None
         self.power = deque()
         self.power_mode = None
+        self.memory_display = None
+        self.memory_time = None
         self.state_dir = Path(state_dir)
         self.legacy_home = Path(legacy_home) if legacy_home else None
 
@@ -65,9 +67,19 @@ class Metrics:
                 reserve = full - reserve if full is not None and reserve is not None else None
             battery["eta_seconds"] = (reserve / average * 3600 if reserve is not None and reserve > 0
                                       and average and average > 0.2 and mode[0] in ("Charging", "Discharging") else None)
+        memory = dict(raw["memory"])
+        segments = [memory["wired"], max(0, memory["used"] - memory["wired"] - memory["compressed"]),
+                    memory["compressed"], memory["cached"]]
+        if self.memory_display is None or elapsed > 10:
+            self.memory_display = segments
+            self.memory_time = mono
+        elif mono - self.memory_time >= 2:
+            self.memory_display = [before * 0.7 + now * 0.3 for before, now in zip(self.memory_display, segments)]
+            self.memory_time = mono
+        memory["display_segments"] = list(self.memory_display)
         result = {"schema_version": 1, "updated_at": wall, "platform": raw["platform"],
                   "cpu": {"cores": rows, "percent": 100 * sum_busy / sum_total if sum_total else None},
-                  "memory": dict(raw["memory"]), "load1": raw["load1"],
+                  "memory": memory, "load1": raw["load1"],
                   "network": {"rx_bytes_per_second": rx / elapsed if net_valid else None,
                               "tx_bytes_per_second": tx / elapsed if net_valid else None},
                   "battery": battery, "uptime_seconds": raw["uptime_seconds"],

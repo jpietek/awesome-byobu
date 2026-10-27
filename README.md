@@ -8,6 +8,11 @@ contents, conversation IDs, shell history, credentials, or machine binaries.
 The existing Mac installation is separate. Creating or testing this repository
 does not replace its running services or reload its tmux server.
 
+The Linux target is **Fedora Asahi Remix 43 or 44 on aarch64**, with KDE Plasma
+and Konsole/Yakuake. The original plots, palette, font and terminal profile are
+preserved; see [appearance fidelity](docs/appearance.md) and the
+[Fedora setup guide](docs/fedora-asahi.md).
+
 ## Platform support
 
 | Component | macOS | Linux |
@@ -15,15 +20,18 @@ does not replace its running services or reload its tmux server.
 | Byobu layout, Ctrl-A bindings, scrollback and tab labels | Included | Shared configuration |
 | Per-core CPU, memory, load, network | Mach/native backend, tested on this Mac | `/proc` backend, tested with fixtures |
 | Battery charge and estimated remaining time | IOKit | `/sys/class/power_supply`, including charge/energy unit conversion |
-| P/E-core labels | Discovered from IORegistry | Unknown unless a future topology adapter supplies them |
+| P/E-core groups | Discovered from IORegistry | Apple M1/M2 device-tree types, or complete two-tier CPU capacity data; otherwise unknown |
 | Collector startup | LaunchAgent | systemd user service |
 | Session save/restore | LaunchAgents | systemd user service/timer |
-| Wake/unlock age | Optional Hammerspoon event bridge; existing unlock file supported | Event interface ready; desktop integration is optional |
+| Wake/unlock age | Optional Hammerspoon event bridge; existing unlock file supported | logind/KDE D-Bus bridge, requires python3-gobject-base |
+| Font and terminal colors | Named iTerm profile | Named Konsole/Yakuake profile with the same palette and bundled Hack Nerd Font Mono |
 | Job CPU budget | Existing Codex/Claude-aware limiter and recovery script | Interface prepared; quota backend is **not implemented** |
 
 Linux collection and service generation have fixture coverage. An actual Linux
 desktop/service activation has not been tested locally. The CI workflow runs on
-Ubuntu and macOS when the repository is hosted and CI is enabled.
+Ubuntu/macOS and Fedora 43/44 ARM containers when the repository is hosted and
+CI is enabled. Fedora container coverage is userspace coverage, not an Asahi
+hardware or KDE session test.
 
 ## Design
 
@@ -57,8 +65,9 @@ the working stats backend.
 
 Requires Python 3.9+, a C compiler, Byobu, tmux, Bash and Perl. macOS's Apple
 Command Line Tools provide the compiler/Python; Homebrew can provide Byobu/tmux.
-On Debian/Ubuntu the corresponding packages are `python3`, `build-essential`,
-`byobu`, `tmux`, `bash`, and `perl`. No Python packages are required.
+On Fedora use `sh platforms/linux/setup-fedora.sh` to install dependencies and
+activate services. The collector itself needs no Python packages; the Fedora
+KDE wake/unlock bridge uses the distribution's `python3-gobject-base` package.
 
 ```sh
 sh build.sh
@@ -92,8 +101,8 @@ your tmux server. An existing server keeps its loaded configuration until you
 explicitly reload it or start a new one. On macOS, activation disables the older
 `com.jan.byobu-session-*` jobs to avoid duplicate autosave timers.
 
-For shell tab titles, source `~/.config/byobu/tab-labels.zsh` from `.zshrc`, or
-`tab-labels.bash` from `.bashrc`. Existing prompt configuration is preserved.
+The installer adds shell tab-title hooks to `.zshrc` and `.bashrc` if missing,
+backing them up and preserving existing prompt configuration.
 Machine/project-specific bindings belong in `~/.config/byobu/local.tmux`, which
 is not tracked. Clipboard URL opening uses `open` on macOS and `xdg-open` with
 `wl-paste` or `xclip` on Linux; an explicit URL needs no clipboard helper.
@@ -106,8 +115,9 @@ agent CLIs/session state. Existing sessions are never replaced at service startu
 For wake/unlock timestamps, the optional macOS module is
 `platforms/macos/terminal_stats_events.lua`. Load it into Hammerspoon and retain
 the object returned by `.start()`. Other desktop/session integrations can call
-`terminal-stats event wake` or `terminal-stats event unlock`. No Linux desktop
-event hooks are installed automatically. "Awake" means time since the recorded
+`terminal-stats event wake` or `terminal-stats event unlock`. No additional
+desktop hooks are needed on KDE beyond the installed `terminal-events.service`.
+It records logind resume and KDE screen-unlock signals. "Awake" means time since the recorded
 wake event, not the previous helper's deliberate-sleep-only heuristic.
 
 ## CPU recovery and archives
@@ -126,5 +136,5 @@ python3 platforms/macos/cpu-limit/package-setup.py --output recovery/setup-cpu-l
 The original Byobu setup (including the old `tmux-metrics` binary whose source
 was not found) was archived separately under `~/Backups/`. Its available native
 sources are retained under `platforms/macos/legacy-stats/`. The new collector is
-fully buildable from this repository. Upstream plugin and cpulimit license files
-are retained with their respective sources.
+fully buildable from this repository. Upstream plugin, font and cpulimit license
+files are retained with their respective sources.

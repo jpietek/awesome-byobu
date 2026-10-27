@@ -63,6 +63,32 @@ class LinuxBackend:
     def __init__(self, proc_root="/proc", sys_root="/sys"):
         self.proc = Path(proc_root)
         self.sys = Path(sys_root)
+        self.topology = {}
+        self.cpu_ids = None
+
+    def core_kinds(self, ids):
+        if tuple(ids) == self.cpu_ids:
+            return self.topology
+        self.cpu_ids = tuple(ids)
+        self.topology = {}
+        capacities = {}
+        for cpu in ids:
+            path = self.sys / "devices/system/cpu" / ("cpu" + str(cpu))
+            compatible = read_text(path / "of_node/compatible").split("\0")
+            if any(v in compatible for v in ("apple,icestorm", "apple,blizzard")):
+                self.topology[cpu] = "efficiency"
+            elif any(v in compatible for v in ("apple,firestorm", "apple,avalanche")):
+                self.topology[cpu] = "performance"
+            capacity = read_number(path / "cpu_capacity")
+            if capacity is not None and capacity > 0:
+                capacities[cpu] = capacity
+        levels = sorted(set(capacities.values()))
+        # Only classify a complete two-tier topology. Missing data and CPUs
+        # with three capacity tiers must not be mislabeled as six E/four P.
+        if len(capacities) == len(ids) and len(levels) == 2:
+            for cpu, capacity in capacities.items():
+                self.topology.setdefault(cpu, "efficiency" if capacity == levels[0] else "performance")
+        return self.topology
 
     def battery(self):
         supplies = list((self.sys / "class/power_supply").glob("*"))
@@ -106,7 +132,11 @@ class LinuxBackend:
                 "plugged": ac or status in ("Charging", "Full", "Not charging")}
 
     def sample(self):
-        return {"platform": "linux", "cpu": cpu_counters((self.proc / "stat").read_text()),
+        cores = cpu_counters((self.proc / "stat").read_text())
+        kinds = self.core_kinds([row["id"] for row in cores])
+        for row in cores:
+            row["kind"] = kinds.get(row["id"], "unknown")
+        return {"platform": "linux", "cpu": cores,
                 "memory": memory_info((self.proc / "meminfo").read_text()),
                 "network": network_counters((self.proc / "net/dev").read_text()),
                 "load1": float((self.proc / "loadavg").read_text().split()[0]),

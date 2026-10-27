@@ -16,6 +16,7 @@ def main(argv=None):
     service.add_argument("--count", type=int)
     service.add_argument("--sensor", type=Path)
     sub.add_parser("status")
+    sub.add_parser("watch-events", help="Fedora KDE D-Bus wake/unlock bridge")
     event = sub.add_parser("event")
     event.add_argument("kind", choices=("wake", "unlock"))
     args = parser.parse_args(argv)
@@ -24,6 +25,9 @@ def main(argv=None):
             if args.count is not None and args.count < 1:
                 parser.error("--count must be positive")
             collect(args.cache_dir, args.state_dir, args.interval, args.count, args.sensor)
+        elif args.action == "watch-events":
+            from .linux_events import watch
+            watch(args.state_dir)
         elif args.action == "event":
             atomic_write(args.state_dir / ("last-" + args.kind), str(int(time.time())) + "\n")
         else:

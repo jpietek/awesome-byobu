@@ -43,4 +43,8 @@ def service_files(system, home):
         "[Unit]\nDescription=Save Byobu sessions every minute\n\n[Timer]\n"
         "OnStartupSec=90\nOnUnitActiveSec=60\nUnit=terminal-session-save.service\n\n"
         "[Install]\nWantedBy=timers.target\n").encode()
+    result[".config/systemd/user/terminal-events.service"] = (
+        "[Unit]\nDescription=Terminal wake/unlock events (Fedora KDE)\nPartOf=graphical-session.target\n\n"
+        "[Service]\nType=simple\nExecStart=" + systemd_arg(binary / "terminal-stats") + " watch-events\n"
+        "Restart=on-failure\nRestartSec=10\n\n[Install]\nWantedBy=graphical-session.target\n").encode()
     return result

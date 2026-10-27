@@ -149,7 +149,7 @@ class ConfigurationTests(unittest.TestCase):
             self.assertNotIn("/Users/jan", text)
             self.assertNotIn("@STATUS_FORMAT@", text)
             self.assertNotIn("@RESURRECT_COMMAND@", text)
-        self.assertIn("Linux", config_text("profile.tmux", "/home/test", "Linux"))
+        self.assertIn("", config_text("profile.tmux", "/home/test", "Linux"))
 
     def test_status_client_marks_stale_cache(self):
         binary = ROOT / "build/tmux-metrics-status"

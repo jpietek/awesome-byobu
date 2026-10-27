@@ -1,0 +1,11 @@
+{
+  "family": "Hack Nerd Font Mono",
+  "nerd_fonts_version": "3.5.1",
+  "upstream": "https://github.com/ryanoasis/nerd-fonts/releases/tag/v3.5.1",
+  "sha256": {
+    "HackNerdFontMono-Bold.ttf": "7c2c76c26ff80fb546798b204ae519335573417c969eb3142d202298722d3832",
+    "HackNerdFontMono-BoldItalic.ttf": "ad9e8d4504c0ffaab07ff44bb98cc0cfd67655df9cda97f5c9fc15e77b301497",
+    "HackNerdFontMono-Italic.ttf": "7b45fbee724e4a58bca6e23d176006d6334cdc848d0ec53ec38daef252900fa8",
+    "HackNerdFontMono-Regular.ttf": "e5aeb58577a8acf2b42083e4a07ce48bd53116fdd868636403cadb5b547351be"
+  }
+}
