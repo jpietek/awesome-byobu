@@ -36,7 +36,12 @@ Test in the source checkout:
 printf '%s\n' 'README.md:1' 'docs/link-test.html' 'docs/images/awesome-byobu-macos-demo.png' 'https://example.com/'
 ```
 
-Ctrl-click the printed text (Cmd-click without Hammerspoon). Code and text go to
+Cmd-click the printed text, or use the optional Hammerspoon Ctrl-click shortcut.
+With an existing Option/Command swap, **physical Option-click** sends native
+Cmd-click and works without Hammerspoon. Use the native shortcut if Ctrl-click
+is unreliable; the migration does not change your physical modifier mappings.
+
+Code and text go to
 a new Vim tab; HTML/URLs use installed Chromium, then Chrome, then your default
 browser. Images, PDFs, media, office files, archives and unknown file types open
 in their default apps. Directories open in the file manager. No browser

@@ -128,7 +128,13 @@ docs/images/awesome-byobu-macos-demo.png
 https://example.com/
 ```
 
-**Ctrl-click** with Hammerspoon; otherwise **Cmd-click**. Source links open Vim
+Use native **Cmd-click**, or **Ctrl-click** through optional Hammerspoon. These
+names refer to the modifiers macOS receives. If your existing keyboard setup
+swaps Option and Command, use the **physical Option key + click** for native
+Cmd-click. This works without the Hammerspoon bridge and is the fallback if
+Ctrl-click is unreliable. Awesome Byobu does not install that modifier swap.
+
+Source links open Vim
 in a new **Byobu tab in the same session**. `file.cpp:78:5` also selects the column.
 Relative paths resolve from the active pane, then its Git repository root.
 Absolute paths and local `file://` links work too. These are local files:
