@@ -19,7 +19,7 @@ def iterm_customizations(home, socket=None):
     rules = []
     for pattern, title in (
         (r'https?://[^\s<>"`]+', 'Open URL in Chromium'),
-        (r'(?:~?/)?[\w.@+-]+(?:/[\w.@+-]+)*\.[A-Za-z0-9_]+(?::[1-9][0-9]*(?::[1-9][0-9]*)?)?(?:[?#][^\s<>"`()]+)?', 'Open file in Vim / HTML in browser'),
+        (r'(?:~?/)?[\w.@+-]+(?:/[\w.@+-]+)*\.[A-Za-z0-9_]+(?::[1-9][0-9]*(?::[1-9][0-9]*)?)?(?:[?#][^\s<>"`()]+)?', 'Open file (code in Vim, others in default app)'),
     ):
         rules.append({'notes': 'Awesome Byobu: ' + title, 'regex': pattern,
             'precision': 'very_high', 'actions': [{'action': 2, 'title': title, 'parameter': command}]})

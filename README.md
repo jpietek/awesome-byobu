@@ -85,6 +85,7 @@ automatic session saves. Your personal Zsh settings load first.
 | Ctrl+A, o | Open an HTTP(S) URL from the clipboard |
 | Cmd-click a source path | Open Vim in a new Byobu tab at `:line[:column]` |
 | Cmd-click an HTML path | Open the local HTML file in a browser |
+| Cmd-click an image, PDF or other file | Open with its default application |
 
 Full-screen programs retain their own Page Up/Page Down behavior. tmux mouse
 mode is off so iTerm can select text. Standard Byobu F-key bindings are retained.
@@ -114,7 +115,7 @@ Setup preserves and backs up `~/.hammerspoon/init.lua`, adding a loader. Remove
 `require("awesome_byobu").start()` and reload Hammerspoon to disable it. Custom
 Hammerspoon config-directory overrides need the loader copied there manually.
 
-### Source links, HTML and URLs
+### Source links, images, documents and URLs
 
 Examples to print or copy into your terminal:
 
@@ -123,6 +124,7 @@ src/mixer/primitives/compositor_layers.hpp:205
 src/nodes/hwaccel/cuda_rect_frame.hpp:78
 tests/cuda/nvdec/compositor_crop.py
 docs/link-test.html
+docs/images/awesome-byobu-macos-demo.png
 https://example.com/
 ```
 
@@ -131,6 +133,21 @@ in a new **Byobu tab in the same session**. `file.cpp:78:5` also selects the col
 Relative paths resolve from the active pane, then its Git repository root.
 Absolute paths and local `file://` links work too. These are local files:
 SSH-only files are not downloaded. Missing paths produce an error.
+
+The link prefix and file type choose the application:
+
+| Link / file type | Opens with |
+|---|---|
+| `http://…`, `https://…`, local `.html` / `.htm` | Browser |
+| Code such as `.hpp:78`, `.cpp`, `.cu`, `.py`, `.js`, `.rs`, `.sh` | Vim in a new Byobu tab, at the requested line/column |
+| Text/config such as `.txt`, `.md`, `.json`, `.yaml`, `.toml`, `.log`, `Makefile`, `Dockerfile`, `.gitignore` | Vim in a new Byobu tab |
+| Images: `.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`, `.svg`, `.heic`, etc. | Default image application |
+| PDFs, office documents, audio/video, archives and unknown extensions | Default application for that file type |
+| Directories | Default file manager |
+
+On macOS, default-app opening uses `open`; Linux uses `xdg-open`. A `:line`
+suffix does not turn an image or PDF into a Vim link. Absolute paths to images,
+documents and HTML work even without an attached Byobu session.
 
 `.html` / `.htm` and HTTP(S) links use installed **Chromium**, then **Google
 Chrome**, then the default browser. No browser is installed or made the system

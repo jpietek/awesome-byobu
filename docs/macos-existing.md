@@ -13,7 +13,7 @@ python3 -m terminal_setup.macos_customizations --profile 'Yakuake' --socket "$(t
 Replace `Yakuake` with your dynamic iTerm profile name. Repeat `--profile` for
 multiple profiles. Use `--no-hammerspoon` for native Cmd-click only.
 
-This adds the link helper, source/HTML detection and Ctrl+Shift+C/V mappings,
+This adds the link helper, file-type routing and Ctrl+Shift+C/V mappings,
 and stores the existing tmux socket in `~/.config/awesome-byobu/links.json`.
 It preserves other profile fields and custom rules and installs only the
 Hammerspoon Ctrl-click bridge; existing paste/trackpad controls keep ownership
@@ -33,9 +33,11 @@ Test in the source checkout:
 
 ```sh
 ~/.local/bin/terminal-open-link --dry-run README.md:1
-printf '%s\n' 'README.md:1' 'docs/link-test.html' 'https://example.com/'
+printf '%s\n' 'README.md:1' 'docs/link-test.html' 'docs/images/awesome-byobu-macos-demo.png' 'https://example.com/'
 ```
 
-Ctrl-click the printed text (Cmd-click without Hammerspoon). Source goes to a
-new Vim tab; HTML/URLs use installed Chromium, then Chrome, then your default
-browser. No browser installation or default-browser change is performed.
+Ctrl-click the printed text (Cmd-click without Hammerspoon). Code and text go to
+a new Vim tab; HTML/URLs use installed Chromium, then Chrome, then your default
+browser. Images, PDFs, media, office files, archives and unknown file types open
+in their default apps. Directories open in the file manager. No browser
+installation or default-browser change is performed.

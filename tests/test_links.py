@@ -24,6 +24,7 @@ class LinkTests(unittest.TestCase):
             ('tests/cuda/nvdec/compositor_crop.py', ('tests/cuda/nvdec/compositor_crop.py', None, None)),
             ('src/example.cpp:78:5', ('src/example.cpp', 78, 5)),
             ('docs/link-test.html', ('docs/link-test.html', None, None)),
+            ('/tmp/claude-crop/demo/compare.png:', ('/tmp/claude-crop/demo/compare.png', None, None)),
         ]:
             with self.subTest(value=value):
                 self.assertEqual(links.parse_reference(value), expected)
@@ -95,6 +96,99 @@ class LinkTests(unittest.TestCase):
                 self.assertEqual(links.main(['test.html#example', '--dry-run']), 0)
             browser.assert_called_once_with(path.resolve().as_uri()+'#example', None)
             self.assertEqual(json.loads(stdout.getvalue())[0], 'chromium')
+
+    def test_images_documents_and_unknown_types_use_default_app_without_tmux(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            for system, opener in [('Darwin', '/usr/bin/open'), ('Linux', '/usr/bin/xdg-open')]:
+                for name in ['compare.png', 'photo.jpg', 'photo.JPEG', 'photo.HEIC',
+                             'animation.gif', 'image.webp', 'diagram.svg', 'report.pdf',
+                             'report.docx', 'sheet.xlsx', 'slides.pptx', 'video.mp4',
+                             'audio.mp3', 'files.zip', 'bundle.tar.gz', 'unknown.bin']:
+                    path = home / name
+                    path.write_bytes(b'\x00fixture')
+                    for suffix in ['', ':78']:
+                        with self.subTest(system=system, target=name+suffix):
+                            stdout = io.StringIO()
+                            with patch.object(links.platform, 'system', return_value=system), \
+                                 patch.object(links.Path, 'home', return_value=home), \
+                                 patch.object(links.shutil, 'which', side_effect=lambda name: '/usr/bin/xdg-open' if name == 'xdg-open' else None), \
+                                 patch.object(links, 'tmux_context', side_effect=AssertionError('non-text file requested tmux')), \
+                                 contextlib.redirect_stdout(stdout):
+                                self.assertEqual(links.main([str(path)+suffix, '--dry-run']), 0)
+                            self.assertEqual(json.loads(stdout.getvalue()), [opener, str(path.resolve())])
+
+    def test_code_and_text_use_vim_at_requested_line(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            for name in ['source.hpp', 'source.HPP', 'source.cpp', 'source.cu', 'script.py',
+                         'README.md', 'notes.txt', 'config.yaml', 'config.json',
+                         'Makefile', 'Dockerfile', '.gitignore', '.env.local']:
+                with self.subTest(name=name):
+                    path = home / name
+                    path.write_text('text fixture\n')
+                    stdout = io.StringIO()
+                    with patch.object(links.Path, 'home', return_value=home), \
+                         patch.object(links.shutil, 'which', side_effect=lambda name: '/usr/bin/'+name), \
+                         patch.object(links, 'tmux_context', return_value=(['tmux'], 'work', home)), \
+                         contextlib.redirect_stdout(stdout):
+                        self.assertEqual(links.main([str(path)+':78', '--dry-run']), 0)
+                    command = json.loads(stdout.getvalue())
+                    self.assertEqual(command[:4], ['tmux', 'new-window', '-t', 'work:'])
+                    self.assertEqual(shlex.split(command[-1]), ['/usr/bin/vim', '+78', '--', str(path.resolve())])
+
+    def test_relative_image_uses_pane_or_explicit_cwd(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            path = home / 'corners.png'
+            path.touch()
+            for offline in [False, True]:
+                with self.subTest(offline=offline):
+                    stdout = io.StringIO()
+                    with patch.object(links.Path, 'home', return_value=home), \
+                         patch.object(links.platform, 'system', return_value='Darwin'), \
+                         patch.object(links.shutil, 'which', return_value='/usr/bin/tmux'), \
+                         patch.object(links, 'tmux_context', return_value=(['tmux'], 'work', home),
+                                      side_effect=ValueError('no client') if offline else None), \
+                         contextlib.redirect_stdout(stdout):
+                        args = ['corners.png', '--line=78', '--dry-run']
+                        if offline:
+                            args += ['--cwd', directory]
+                        self.assertEqual(links.main(args), 0)
+                    self.assertEqual(json.loads(stdout.getvalue()), ['/usr/bin/open', str(path.resolve())])
+
+    def test_directories_open_file_manager_even_with_source_or_html_extension(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            for name in ['folder', 'folder.hpp', 'folder.html']:
+                with self.subTest(name=name):
+                    path = home / name
+                    path.mkdir()
+                    stdout = io.StringIO()
+                    with patch.object(links.Path, 'home', return_value=home), \
+                         patch.object(links.platform, 'system', return_value='Darwin'), \
+                         patch.object(links, 'tmux_context', side_effect=AssertionError('directory requested tmux')), \
+                         contextlib.redirect_stdout(stdout):
+                        self.assertEqual(links.main([str(path), '--dry-run']), 0)
+                    self.assertEqual(json.loads(stdout.getvalue()), ['/usr/bin/open', str(path.resolve())])
+
+    def test_web_links_use_browser_regardless_of_extension(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for target in ['https://example.com/source.hpp:78', 'https://example.com/photo.png',
+                           'HTTP://example.com/report.pdf']:
+                with self.subTest(target=target), patch.object(links.Path, 'home', return_value=Path(directory)), \
+                     patch.object(links, 'browser_command', return_value=['chromium', target]) as browser, \
+                     patch.object(links, 'tmux_context', side_effect=AssertionError('URL requested tmux')), \
+                     contextlib.redirect_stdout(io.StringIO()) as stdout:
+                    self.assertEqual(links.main([target, '--dry-run']), 0)
+                    browser.assert_called_once_with(target, None)
+                    self.assertEqual(json.loads(stdout.getvalue()), ['chromium', target])
+
+    def test_linux_missing_default_opener_reports_dependency(self):
+        with patch.object(links.platform, 'system', return_value='Linux'), \
+             patch.object(links.shutil, 'which', return_value=None), \
+             self.assertRaisesRegex(ValueError, 'install xdg-utils'):
+            links.default_file_command(Path('/tmp/image.png'))
 
     def test_hammerspoon_opt_in_preserves_existing_config_and_is_idempotent(self):
         with tempfile.TemporaryDirectory() as directory:
