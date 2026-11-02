@@ -5,7 +5,7 @@ if [ -z "$url" ]; then
     case "$(uname -s)" in
         Darwin) url=$(pbpaste) ;;
         Linux)
-            if command -v wl-paste >/dev/null 2>&1; then url=$(wl-paste --no-newline)
+            if [ -n "${WAYLAND_DISPLAY:-}" ] && command -v wl-paste >/dev/null 2>&1; then url=$(wl-paste --no-newline)
             elif command -v xclip >/dev/null 2>&1; then url=$(xclip -selection clipboard -o)
             else echo 'Pass a URL, or install wl-clipboard/xclip.' >&2; exit 1; fi ;;
         *) exit 1 ;;

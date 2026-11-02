@@ -5,3 +5,6 @@ if [[ -r "$terminal_setup_user_zdotdir/.zshrc" ]]; then
     source "$terminal_setup_user_zdotdir/.zshrc"
 fi
 source "${TERMINAL_SETUP_CONFIG}/tab-labels.zsh"
+# Linux-style word movement from the terminal profile, including fresh macOS.
+bindkey '^[[1;5D' backward-word
+bindkey '^[[1;5C' forward-word

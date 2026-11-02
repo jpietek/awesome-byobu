@@ -37,6 +37,7 @@ set -g allow-rename on
 set -g default-shell @ZSH_PATH@
 set -g default-command @SHELL_COMMAND@
 set -g default-terminal 'tmux-256color'
+set -g mouse off
 set -as terminal-features ',xterm-256color:RGB'
 
 # GNU Screen / Linux-style Control-A prefix. Byobu's stock F-key profile

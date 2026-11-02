@@ -28,6 +28,6 @@ def main(argv=None):
         except (OSError, ValueError, KeyError) as error:
             if time.monotonic() >= deadline:
                 print('Setup files are installed, but collector verification failed: ' + str(error))
-                print('Inspect terminal-metrics.service on Fedora or org.terminal-setup.metrics on macOS.')
+                print('Inspect terminal-metrics.service on Linux or org.terminal-setup.metrics on macOS.')
                 return 1
             time.sleep(0.5)

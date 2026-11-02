@@ -1,0 +1,5 @@
+#!@PYTHON@
+import sys
+sys.path.insert(0, @PACKAGE_PATH@)
+from terminal_setup.links import main
+sys.exit(main())

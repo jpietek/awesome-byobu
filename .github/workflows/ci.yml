@@ -12,9 +12,9 @@ jobs:
         with:
           python-version: '3.11'
       - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y byobu tmux zsh
+        run: sudo apt-get update && sudo apt-get install -y byobu tmux zsh lua5.4
       - if: runner.os == 'macOS'
-        run: brew install byobu tmux
+        run: brew install byobu tmux lua
       - run: sh build.sh
       - run: python -m unittest discover -s tests -v
       - run: python -m terminal_setup.cli --cache-dir /tmp/terminal-stats-ci/cache --state-dir /tmp/terminal-stats-ci/state collect --count 3
@@ -32,4 +32,53 @@ jobs:
       - run: sh build.sh
       - run: python3 -m unittest discover -s tests -v
       - run: python3 -m terminal_setup.install --stage /tmp/terminal-setup-stage
+      - run: python3 -m terminal_setup.cli --cache-dir /tmp/terminal-stats-ci/cache --state-dir /tmp/terminal-stats-ci/state collect --count 3
+  linux-packages:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: ubuntu:24.04
+            family: ubuntu
+          - image: debian:12
+            family: debian
+          - image: fedora:44
+            family: fedora
+          - image: archlinux:base
+            family: arch
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    steps:
+      - name: Prepare checkout tools
+        shell: sh
+        env:
+          FAMILY: ${{ matrix.family }}
+        run: |
+          case "$FAMILY" in
+            ubuntu|debian) apt-get update && apt-get install -y git ca-certificates tar gzip ;;
+            fedora) dnf install -y git ca-certificates tar gzip ;;
+            arch) pacman -Syu --noconfirm --needed git ca-certificates tar gzip ;;
+          esac
+      - uses: actions/checkout@v4
+      - name: Install the actual dependency list
+        shell: sh
+        env:
+          FAMILY: ${{ matrix.family }}
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          . ./platforms/dependencies.sh
+          case "$FAMILY" in
+            ubuntu|debian) apt-get update && apt-get install -y $(dependency_packages "$FAMILY") lua5.4 ;;
+            fedora) dnf install -y $(dependency_packages fedora) lua ;;
+            arch)
+              pacman -Syu --noconfirm --needed $(dependency_packages arch) lua
+              useradd -m builder
+              source_script=$(pwd)/platforms/linux/install-byobu-source.sh
+              runuser -u builder -- sh "$source_script"
+              echo /home/builder/.local/opt/byobu-7.19/bin >> "$GITHUB_PATH"
+              ;;
+          esac
+      - run: sh build.sh
+      - run: python3 -m unittest discover -s tests -v
+      - run: sh setup.sh --stage /tmp/terminal-setup-stage
       - run: python3 -m terminal_setup.cli --cache-dir /tmp/terminal-stats-ci/cache --state-dir /tmp/terminal-stats-ci/state collect --count 3

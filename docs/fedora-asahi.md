@@ -12,7 +12,7 @@ From the cloned repository, as your normal desktop user:
 sh setup.sh
 ```
 
-The helper checks Fedora 43/44, uses `sudo dnf` for system packages, then runs
+The helper detects Fedora, uses `sudo dnf` for system packages, then runs
 the user installer with service activation. It installs the compiler, Python,
 Byobu/tmux, Bash/Zsh, Perl, fontconfig, Wayland clipboard utilities, Konsole,
 Yakuake and the D-Bus Python binding. To inspect dependencies only:

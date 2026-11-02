@@ -2,19 +2,29 @@
 # One entry point for a clean or existing desktop. Run as the normal user.
 set -eu
 cd "$(dirname "$0")"
+. ./platforms/dependencies.sh
 case "${1:-}" in
     --help|-h)
-        echo 'Usage: sh setup.sh [--no-open] [--with-cpu-limit]'
+        echo 'Usage: sh setup.sh [--no-open] [--with-hammerspoon] [--with-cpu-limit]'
+        echo '       sh setup.sh --print-deps [macos|fedora|ubuntu|debian|arch]'
         echo '       sh setup.sh --stage DIRECTORY    (no dependency installation or activation)'
         exit 0 ;;
-    --stage) exec ./install.sh "$@" ;;
+    --stage) exec sh ./install.sh "$@" ;;
+    --print-deps)
+        if [ -n "${2:-}" ]; then setup_family=$(dependency_family "$2")
+        elif [ "$(uname -s)" = Darwin ]; then setup_family=macos
+        else . /etc/os-release; setup_family=$(dependency_family "$ID"); fi
+        dependency_commands "$setup_family"
+        exit 0 ;;
 esac
 setup_open=yes
 setup_cpu=no
+setup_hammerspoon=no
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --no-open) setup_open=no ;;
         --with-cpu-limit) setup_cpu=yes ;;
+        --with-hammerspoon) setup_hammerspoon=yes ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
     shift
@@ -50,24 +60,46 @@ case "$(uname -s)" in
             done
         fi
         echo 'Installing Byobu, tmux, Python and iTerm2…'
-        brew install byobu tmux python
+        brew install $(dependency_packages macos)
         if [ ! -d /Applications/iTerm.app ] && [ ! -d "$HOME/Applications/iTerm.app" ]; then
             brew install --cask iterm2
+        fi
+        if [ "$setup_hammerspoon" = yes ] && [ ! -d /Applications/Hammerspoon.app ] && [ ! -d "$HOME/Applications/Hammerspoon.app" ]; then
+            brew install --cask hammerspoon
         fi
         export PYTHON="$(command -v python3)"
         ;;
     Linux)
         . /etc/os-release
-        case "$ID:$VERSION_ID" in fedora:43|fedora:44) ;; *) echo 'Automatic Linux setup targets Fedora 43/44.' >&2; exit 1 ;; esac
+        setup_family=$(dependency_family "$ID")
         [ "$setup_cpu" = no ] || { echo 'Linux CPU limiting is not implemented; rerun without --with-cpu-limit.' >&2; exit 1; }
-        echo 'Installing Fedora terminal dependencies…'
-        sudo dnf install -y gcc python3 byobu tmux bash zsh perl perl-Fcntl procps-ng which python3-gobject-base fontconfig xdg-utils wl-clipboard konsole yakuake
+        [ "$setup_hammerspoon" = no ] || { echo 'Hammerspoon is macOS-only; rerun without --with-hammerspoon.' >&2; exit 1; }
+        command -v sudo >/dev/null || { echo 'An administrator must install sudo and grant your desktop account access first.' >&2; exit 1; }
+        systemctl --user show-environment >/dev/null 2>&1 || { echo 'Run from a logged-in Linux desktop with systemd user services and D-Bus.' >&2; exit 1; }
+        echo "Installing $setup_family terminal dependencies…"
+        case "$setup_family" in
+            fedora) sudo dnf install -y $(dependency_packages fedora) ;;
+            ubuntu|debian)
+                sudo apt-get update
+                sudo apt-get install -y $(dependency_packages "$setup_family") ;;
+            arch)
+                echo 'Arch requires a full system upgrade; review the pacman transaction.'
+                sudo pacman -Syu --needed $(dependency_packages arch)
+                sh platforms/linux/install-byobu-source.sh ;;
+        esac
         export PYTHON=/usr/bin/python3
         export PATH="/usr/bin:/bin:$PATH"
+        if [ "$setup_family" = arch ]; then export PATH="$HOME/.local/opt/byobu-7.19/bin:$PATH"; fi
         ;;
-    *) echo 'Supported systems: macOS 15+, Fedora 43/44.' >&2; exit 1 ;;
+    *) echo 'Supported systems: macOS 15+, Fedora, Ubuntu/Debian, Arch.' >&2; exit 1 ;;
 esac
-./install.sh --activate
+if [ "$setup_hammerspoon" = yes ]; then
+    sh ./install.sh --activate --with-hammerspoon
+    /usr/bin/open -a Hammerspoon
+    echo 'Hammerspoon: allow Accessibility access, then choose Reload Config from its menu.'
+else
+    sh ./install.sh --activate
+fi
 if [ "$setup_cpu" = yes ]; then
     /bin/sh recovery/setup-cpu-limit.sh
 fi

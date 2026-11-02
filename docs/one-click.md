@@ -1,11 +1,13 @@
 # Clean or existing machine setup
 
-Copy **terminal-setup.zip** to the target machine and extract it. Git and Python
+For one-line downloads and full package lists, start with the [README](../README.md).
+
+Copy **awesome-byobu.zip** to the target machine and extract it. Git and Python
 are not needed to begin setup. The archive contains source, pinned plugins,
 the exact fonts, and all setup scripts.
 
 * **Mac:** double-click `Setup.command` in the extracted folder.
-* **Fedora:** open a terminal in that folder and run `sh setup.sh`.
+* **Fedora, Ubuntu/Debian, Arch:** open a terminal in that folder and run `sh setup.sh`.
 * The same `sh setup.sh` command also works on Mac.
 
 The bootstrap installs dependencies, compiles native components, installs the
@@ -61,8 +63,9 @@ here, and Homebrew treats Intel as Tier 3. Older macOS is not claimed supported.
 No fixed CPU count, username or memory size is assumed. A desktop without a
 battery simply has no battery badge. P/E groups require topology information.
 
-Linux bootstrap targets **Fedora 43 or 44**, including Fedora Asahi Remix on
-supported Apple hardware. The KDE and GNOME unlock interfaces are supported;
+Linux bootstrap targets Fedora 43+, Ubuntu 24.04+, Debian 12+, and current Arch,
+including Fedora Asahi Remix on supported Apple hardware. A systemd desktop
+login is required. The KDE and GNOME unlock interfaces are supported;
 other desktops may need an event bridge. This is an application setup, not an
 Asahi OS installer or hardware-enablement package.
 
@@ -73,9 +76,10 @@ sh setup.sh --stage /tmp/preview  # no packages/services/UI; existing build tool
 ```
 
 The optional Apple Silicon job limiter can be restored with
-`sh setup.sh --with-cpu-limit`. Linux CPU quotas remain unimplemented. Desktop-
-wide Hammerspoon keyboard/trackpad mappings and global drop-down hotkeys are
-separate from this Byobu setup.
+`sh setup.sh --with-cpu-limit`. Linux CPU quotas remain unimplemented.
+`sh setup.sh --with-hammerspoon` adds terminal-only paste/trackpad controls,
+Ctrl-click links and a Ctrl+grave iTerm toggle. See the README shortcut table.
+Physical modifier remaps and desktop-wide GUI shortcuts remain separate.
 
 Validation covers staged clean/existing homes, personal-shell preservation,
 backup creation, title rules, metrics, a real isolated tmux session save/restore,
@@ -83,4 +87,4 @@ and Mac helper startup. Dependency bootstrap on a freshly erased Mac, Intel
 hardware, and an actual Fedora Asahi desktop have not been run locally.
 
 To build a new portable ZIP after committing changes, run `sh package.sh` in
-the Git checkout. It writes `~/terminal-setup.zip` and a SHA-256 checksum file.
+the Git checkout. It writes `~/awesome-byobu.zip` and a SHA-256 checksum file.

@@ -1,6 +1,7 @@
 """Install or stage configuration. Never kill/restart the user's tmux server."""
 import argparse
 import datetime
+import json
 import os
 from pathlib import Path
 import platform
@@ -10,6 +11,7 @@ import subprocess
 import sys
 from .services import service_files
 from .appearance import appearance_files
+from .macos_customizations import hammerspoon_files
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -52,7 +54,7 @@ def config_text(name, home, system):
     return text
 
 
-def install(home, system, activate=False, stage=False):
+def install(home, system, activate=False, stage=False, with_hammerspoon=False):
     home = Path(home).resolve()
     if system not in ("Darwin", "Linux"):
         raise RuntimeError("Unsupported platform: " + system)
@@ -63,7 +65,16 @@ def install(home, system, activate=False, stage=False):
     if activate and home != Path.home().resolve():
         raise RuntimeError("Only the current user's home can activate services")
     files = {}
+    if with_hammerspoon:
+        if system != 'Darwin':
+            raise RuntimeError('Hammerspoon is macOS-only')
+        files.update(hammerspoon_files(ROOT, home))
     files.update(appearance_files(ROOT, home, system))
+    link_config = home / '.config/awesome-byobu/links.json'
+    if not link_config.exists():
+        files[link_config] = ((json.dumps({
+            'socket': str(home / '.local/state/terminal-setup/tmux' / ('tmux-' + str(os.getuid())) / 'default'),
+            'tmux': shutil.which('tmux'), 'vim': shutil.which('vim')}, indent=2) + '\n').encode(), 0o644)
     zsh = shutil.which('zsh')
     if not zsh:
         raise RuntimeError('Zsh is required for the full tab-name rules; run setup.sh to install dependencies')
@@ -178,10 +189,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--stage", type=Path, help="write into a test home without service activation")
     parser.add_argument("--activate", action="store_true")
+    parser.add_argument("--with-hammerspoon", action="store_true")
     args = parser.parse_args()
     if os.getuid() == 0 and not args.stage:
         parser.error("Run as your normal user, without sudo")
-    install(args.stage or Path.home(), platform.system(), args.activate, bool(args.stage))
+    install(args.stage or Path.home(), platform.system(), args.activate, bool(args.stage), args.with_hammerspoon)
 
 
 if __name__ == "__main__":

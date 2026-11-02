@@ -3,11 +3,11 @@
 set -eu
 cd "$(dirname "$0")"
 [ -z "$(git status --porcelain)" ] || { echo 'Commit changes before packaging.' >&2; exit 1; }
-archive=${1:-"$HOME/terminal-setup.zip"}
+archive=${1:-"$HOME/awesome-byobu.zip"}
 case "$archive" in /*) ;; *) archive="$(pwd)/$archive" ;; esac
 mkdir -p "$(dirname "$archive")"
 umask 077
-git archive --format=zip --prefix=terminal-setup/ --output="$archive" HEAD
+git archive --format=zip --prefix=awesome-byobu/ --output="$archive" HEAD
 (
     cd "$(dirname "$archive")"
     if command -v shasum >/dev/null 2>&1; then

@@ -4,6 +4,7 @@ terminal_setup_tools=@TOOLS_BIN@
 export PATH="$terminal_setup_tools:$terminal_setup_home/.local/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:${PATH:-/usr/bin:/bin}:/usr/sbin:/sbin"
 export BYOBU_CONFIG_DIR="$terminal_setup_home/.config/byobu"
 export BYOBU_PREFIX=@BYOBU_PREFIX@
+export PATH="$BYOBU_PREFIX/bin:$PATH"
 export BYOBU_BACKEND=tmux
 export BYOBU_TERM=tmux-256color
 export BYOBU_RUN_DIR="$terminal_setup_home/.cache/terminal-setup/byobu"

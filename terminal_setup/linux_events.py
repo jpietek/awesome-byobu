@@ -7,7 +7,7 @@ def watch(state_dir):
     try:
         from gi.repository import Gio, GLib
     except ImportError as error:
-        raise RuntimeError("Install python3-gobject-base for Fedora KDE event integration") from error
+        raise RuntimeError("Install python3-gobject-base (Fedora), python3-gi (Ubuntu/Debian), or python-gobject (Arch)") from error
 
     def wake(connection, sender, path, interface, signal, parameters, data):
         if parameters.unpack() == (False,):

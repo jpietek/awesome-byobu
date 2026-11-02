@@ -4,6 +4,7 @@ from pathlib import Path
 import shlex
 import plistlib
 import uuid
+from .macos_customizations import iterm_customizations
 
 
 def appearance_files(root, home, system):
@@ -18,6 +19,7 @@ def appearance_files(root, home, system):
     if system == "Darwin":
         profile = dict(source, Name="Terminal setup", Guid=str(uuid.uuid5(uuid.NAMESPACE_URL, "terminal-setup/profile")))
         profile.update({"Custom Command": "Yes", "Command": shlex.join([str(home / '.local/bin/start-byobu')])})
+        profile.update(iterm_customizations(home))
         target = home / "Library/Application Support/iTerm2/DynamicProfiles/TerminalSetup.json"
         files[target] = ((json.dumps({"Profiles": [profile]}, indent=2) + "\n").encode(), 0o644)
         application = home / 'Applications/Terminal setup.app/Contents'
