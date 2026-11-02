@@ -1,7 +1,24 @@
 # Awesome Byobu
 
+![Awesome Byobu on macOS: Git-aware tabs, per-core CPU plots, memory bar, network rates, battery and wake/unlock badges](docs/images/awesome-byobu-macos.png)
+
+*Actual iTerm2/tmux screenshot with demo metrics. CPU, memory, network, battery
+and wake/unlock indicators share the lower row; workspaces fill the row above.*
+
 Byobu/tmux with readable tabs, live CPU/RAM/battery stats, saved sessions, and
 source links that open Vim at the right line.
+
+## Huge thanks to Dustin Kirkland and the original Byobu project
+
+This setup builds on **[Byobu](https://github.com/dustinkirkland/byobu)**.
+A huge thank you to **[Dustin Kirkland](https://github.com/dustinkirkland)**
+([kirkland@byobu.org](mailto:kirkland@byobu.org)) and all Byobu contributors for
+the terminal environment that makes this project possible.
+
+The name refers to **byōbu (屏風)**, Japanese folding screens made of joined,
+often decorated panels—a fitting image for a terminal with multiple workspaces.
+Read about [Japanese byōbu](https://en.wikipedia.org/wiki/By%C5%8Dbu), or visit
+the [original Byobu project](https://www.byobu.org/).
 
 **macOS is the primary supported environment:** macOS 15+ on Apple Silicon,
 Homebrew and iTerm2. Linux installers target Fedora 43+, Ubuntu 24.04+,
