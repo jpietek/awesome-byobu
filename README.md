@@ -1,6 +1,6 @@
 # Awesome Byobu
 
-![Awesome Byobu on macOS: Git-aware tabs, per-core CPU plots, memory bar, network rates, battery and wake/unlock badges](docs/images/awesome-byobu-macos.png)
+![Awesome Byobu on macOS: Git-aware tabs, per-core CPU plots, memory bar, network rates, battery and wake/unlock badges](docs/images/awesome-byobu-macos-demo.png)
 
 *Actual iTerm2/tmux screenshot with demo metrics. CPU, memory, network, battery
 and wake/unlock indicators share the lower row; workspaces fill the row above.*
